@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rubik's 2x2 Full Controls</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
+        #ui {
+            position: absolute; top: 10px; left: 10px; z-index: 100;
+            background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 12px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border: 1px solid #444;
+            max-width: 250px;
+        }
+        .header { grid-column: span 2; color: #00ffcc; font-weight: bold; text-align: center; margin-bottom: 5px; }
+        button {
+            padding: 8px; background: #222; color: white; border: 1px solid #555;
+            cursor: pointer; border-radius: 5px; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { background: #00ffcc; color: #000; }
+        .reset { grid-column: span 2; color: #ff4444; border-color: #600; margin-top: 5px; }
+        .hint { grid-column: span 2; color: #888; font-size: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="header">2x2 Pocket Cube</div>
+        
+        <button onclick="rotateLayer('y', 1)">Up (U)</button>
+        <button onclick="rotateLayer('y', -1)">Down (D)</button>
+        
+        <button onclick="rotateLayer('x', -1)">Left (L)</button>
+        <button onclick="rotateLayer('x', 1)">Right (R)</button>
+        
+        <button onclick="rotateLayer('z', 1)">Front (F)</button>
+        <button onclick="rotateLayer('z', -1)">Back (B)</button>
+
+        <button class="reset" onclick="location.reload()">Reset Cube</button>
+        <div class="hint">اسحب المكعب للف الكاميرا</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls, rubiksCube;
+        let allSmallCubes = [];
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // إضاءة قوية وواضحة
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(5, 5, 5);
+            scene.add(light);
+
+            const materials = [
+                new THREE.MeshStandardMaterial({ color: 0xff5800 }), // Right
+                new THREE.MeshStandardMaterial({ color: 0xb71234 }), // Left
+                new THREE.MeshStandardMaterial({ color: 0xffffff }), // Up
+                new THREE.MeshStandardMaterial({ color: 0xffd500 }), // Down
+                new THREE.MeshStandardMaterial({ color: 0x009b48 }), // Front
+                new THREE.MeshStandardMaterial({ color: 0x0046ad })  // Back
+            ];
+
+            rubiksCube = new THREE.Group();
+            scene.add(rubiksCube);
+
+            // بناء 2x2 (8 قطع)
+            for (let x of [-0.5, 0.5]) {
+                for (let y of [-0.5, 0.5]) {
+                    for (let z of [-0.5, 0.5]) {
+                        const geometry = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+                        const cube = new THREE.Mesh(geometry, materials);
+                        cube.position.set(x, y, z);
+                        
+                        const edges = new THREE.EdgesGeometry(geometry);
+                        cube.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 })));
+
+                        rubiksCube.add(cube);
+                        allSmallCubes.push(cube);
+                    }
+                }
+            }
+
+            camera.position.set(3, 3, 5);
+            controls.update();
+            animate();
+        }
+
+        // دالة التدوير الشاملة
+        window.rotateLayer = function(axis, direction) {
+            const tempGroup = new THREE.Group();
+            scene.add(tempGroup);
+
+            const worldPos = new THREE.Vector3();
+            const toRotate = allSmallCubes.filter(c => {
+                c.getWorldPosition(worldPos);
+                // نحدد الطبقة بناءً على اتجاه المحور (موجب أو سالب)
+                return (direction > 0) ? worldPos[axis] > 0 : worldPos[axis] < 0;
+            });
+
+            toRotate.forEach(c => tempGroup.attach(c));
+            
+            // تدوير 90 درجة (PI / 2)
+            tempGroup.rotation[axis] += Math.PI / 2;
+            tempGroup.updateMatrixWorld();
+
+            toRotate.forEach(c => rubiksCube.attach(c));
+            scene.remove(tempGroup);
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
